@@ -1,0 +1,248 @@
+<div class="min-h-screen">
+  <header class="bg-ink-950 text-slate-100">
+    <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-4">
+      <div class="flex items-center gap-3">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/20 text-teal-300 font-bold">د</div>
+        <div>
+          <div class="text-base font-semibold leading-tight">{{ t().title }}</div>
+          <div class="text-xs text-slate-400">{{ t().subtitle }}</div>
+        </div>
+      </div>
+      <span class="pill bg-teal-400/15 text-teal-200">{{ demo ? t().demoBadge : t().apiBadge }}</span>
+      <div class="ms-auto flex flex-wrap items-center gap-2">
+        <label class="text-xs text-slate-400">{{ t().role }}</label>
+        <select class="!w-auto bg-ink-900 text-slate-100 border-ink-800" [ngModel]="actor()" (ngModelChange)="switchActor($event)">
+          @for (u of users; track u.id) {
+            <option [value]="u.username">{{ displayName(u) }} · {{ labelRole(u.role) }}</option>
+          }
+        </select>
+        <button class="btn-ghost !bg-ink-900 !text-slate-100 !border-ink-800" (click)="toggleLang()">{{ t().lang }}</button>
+        @if (demo) {
+          <button class="btn-ghost !bg-ink-900 !text-slate-100 !border-ink-800" [disabled]="busy()" (click)="reset()">{{ t().reset }}</button>
+        }
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-6 space-y-5">
+    <p class="text-sm text-slate-600">{{ t().about }} <span class="text-slate-400">{{ t().fiction }}</span>
+      <a class="text-teal-700 hover:underline" [href]="repoUrl" target="_blank" rel="noopener">{{ t().repo }}</a>
+    </p>
+
+    @if (summary(); as s) {
+      <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <div class="card p-4"><div class="text-xs text-slate-500">{{ t().draft }}</div><div class="mt-1 text-2xl font-semibold">{{ s.totals.initiated }}</div></div>
+        <div class="card p-4"><div class="text-xs text-slate-500">{{ t().pendingApproval }}</div><div class="mt-1 text-2xl font-semibold">{{ s.totals.pendingApproval }}</div></div>
+        <div class="card p-4"><div class="text-xs text-slate-500">{{ t().submitted }}</div><div class="mt-1 text-2xl font-semibold">{{ s.totals.submitted }}</div></div>
+        <div class="card p-4"><div class="text-xs text-slate-500">{{ t().settled }}</div><div class="mt-1 text-2xl font-semibold text-emerald-700">{{ s.totals.settled }}</div></div>
+        <div class="card p-4"><div class="text-xs text-slate-500">{{ t().failed }}</div><div class="mt-1 text-2xl font-semibold text-rose-700">{{ s.totals.failed }}</div></div>
+        <div class="card p-4"><div class="text-xs text-slate-500">{{ t().openHits }}</div><div class="mt-1 text-2xl font-semibold text-amber-700">{{ s.totals.openRuleHits }}</div></div>
+      </section>
+    }
+
+    <nav class="flex flex-wrap gap-2">
+      @for (tabItem of tabs(); track tabItem.id) {
+        <button class="btn-ghost" [class.bg-teal-50]="tab() === tabItem.id" [class.border-teal-200]="tab() === tabItem.id" (click)="tab.set(tabItem.id)">
+          {{ tabItem.label }}
+          <span class="pill bg-slate-100 text-slate-600">{{ tabItem.count }}</span>
+        </button>
+      }
+      @if (can('create')) {
+        <button class="btn-primary ms-auto" (click)="composing.set(true)">{{ t().newPayment }}</button>
+      }
+    </nav>
+
+    @if (composing()) {
+      <form class="card grid gap-3 p-4 md:grid-cols-2" (submit)="$event.preventDefault(); create()">
+        <h2 class="md:col-span-2 text-sm font-semibold">{{ t().createTitle }}</h2>
+        <label>{{ t().kind }}
+          <select [(ngModel)]="form.kind" name="kind">
+            <option value="instant_credit">{{ t().kind_instant_credit }}</option>
+            <option value="credit_transfer">{{ t().kind_credit_transfer }}</option>
+            <option value="bill_payment">{{ t().kind_bill_payment }}</option>
+          </select>
+        </label>
+        <label>{{ t().amount }}
+          <input class="iban" [(ngModel)]="form.amount" name="amount" required />
+        </label>
+        <label>{{ t().debtor }}
+          <input [(ngModel)]="form.debtorName" name="debtorName" required />
+        </label>
+        <label>IBAN
+          <input class="iban" [(ngModel)]="form.debtorIban" name="debtorIban" required />
+        </label>
+        <label>{{ t().creditor }}
+          <input [(ngModel)]="form.creditorName" name="creditorName" required />
+        </label>
+        <label>IBAN
+          <input class="iban" [(ngModel)]="form.creditorIban" name="creditorIban" required />
+        </label>
+        <label>{{ t().reference }}
+          <input [(ngModel)]="form.reference" name="reference" />
+        </label>
+        <label>{{ t().note }}
+          <input [(ngModel)]="form.narrative" name="narrative" />
+        </label>
+        <div class="md:col-span-2 flex gap-2">
+          <button class="btn-primary" [disabled]="busy()" type="submit">{{ t().save }}</button>
+          <button class="btn-ghost" type="button" (click)="composing.set(false)">{{ t().cancel }}</button>
+        </div>
+      </form>
+    }
+
+    @if (tab() === 'queue' || tab() === 'approvals') {
+      <div class="card overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="bg-slate-50 border-b border-slate-100">
+            <tr>
+              <th>{{ t().reference }}</th>
+              <th>{{ t().kind }}</th>
+              <th>{{ t().amount }}</th>
+              <th>{{ t().creditor }}</th>
+              <th>{{ t().status }}</th>
+              <th>{{ t().approval }}</th>
+              <th>{{ t().actions }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of (tab() === 'approvals' ? pending() : payments()); track p.id) {
+              <tr class="border-t border-slate-100">
+                <td>
+                  <div class="font-medium">{{ p.reference }}</div>
+                  <div class="text-xs text-slate-500 iban">{{ p.id }}</div>
+                </td>
+                <td>{{ labelKind(p.kind) }}</td>
+                <td class="iban whitespace-nowrap">{{ p.amountMinor | money:p.currency }}</td>
+                <td>
+                  <div>{{ p.creditorName }}</div>
+                  <div class="text-xs text-slate-500 iban">{{ p.creditorIban }}</div>
+                </td>
+                <td><span class="pill" [class]="statusClass(p.status)">{{ labelStatus(p.status) }}</span></td>
+                <td><span class="pill bg-slate-100">{{ labelApproval(p.approvalStatus) }}</span></td>
+                <td class="space-x-1 space-x-reverse whitespace-nowrap">
+                  @if (can('checks') && p.status === 'initiated') {
+                    <button class="btn-primary" [disabled]="busy()" (click)="runChecks(p)">{{ t().runChecks }}</button>
+                  }
+                  @if (can('approve') && p.status === 'screened' && p.approvalStatus === 'pending') {
+                    <button class="btn-accept" [disabled]="busy()" (click)="approve(p)">{{ t().approve }}</button>
+                    <button class="btn-reject" [disabled]="busy()" (click)="reject(p)">{{ t().reject }}</button>
+                  }
+                  @if (can('submit') && p.status === 'screened' && p.approvalStatus !== 'pending') {
+                    <button class="btn-primary" [disabled]="busy()" (click)="submit(p)">{{ t().submit }}</button>
+                  }
+                  @if (can('admin') && p.status === 'submitted') {
+                    <button class="btn-accept" [disabled]="busy()" (click)="settle(p)">{{ t().settle }}</button>
+                    <button class="btn-reject" [disabled]="busy()" (click)="fail(p)">{{ t().fail }}</button>
+                  }
+                  @if (can('admin') && p.status === 'settled') {
+                    <button class="btn-ghost" [disabled]="busy()" (click)="reverse(p)">{{ t().reverse }}</button>
+                  }
+                  @if (p.failureReason) {
+                    <div class="mt-1 text-xs text-rose-700">{{ p.failureReason }}</div>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="7" class="p-6 text-center text-slate-500">{{ t().empty }}</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    @if (tab() === 'ledger') {
+      <div class="grid gap-4 lg:grid-cols-3">
+        <div class="card overflow-hidden lg:col-span-1">
+          <div class="border-b border-slate-100 px-4 py-3 text-sm font-semibold">{{ t().ledger }}</div>
+          <table class="min-w-full">
+            <thead><tr><th>{{ t().account }}</th><th class="iban">Δ</th></tr></thead>
+            <tbody>
+              @for (row of balanceEntries(); track row.account + row.currency) {
+                <tr class="border-t border-slate-100">
+                  <td class="mono text-xs">{{ row.account }}</td>
+                  <td class="iban whitespace-nowrap">{{ row.signed | money:row.currency }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="card overflow-x-auto lg:col-span-2">
+          <table class="min-w-full">
+            <thead class="bg-slate-50"><tr><th>{{ t().posted }}</th><th>{{ t().payment }}</th><th>{{ t().note }}</th><th>{{ t().account }}</th><th>{{ t().debit }}</th><th>{{ t().credit }}</th></tr></thead>
+            <tbody>
+              @for (j of journals(); track j.id) {
+                @for (line of j.lines; track $index) {
+                  <tr class="border-t border-slate-100">
+                    <td class="text-xs text-slate-500">{{ j.postedAt }}</td>
+                    <td class="iban text-xs">{{ j.paymentId }}</td>
+                    <td>{{ j.reason }}</td>
+                    <td class="mono text-xs">{{ line.account }}</td>
+                    <td class="iban">{{ line.debitMinor ? (line.debitMinor | money:line.currency) : '' }}</td>
+                    <td class="iban">{{ line.creditMinor ? (line.creditMinor | money:line.currency) : '' }}</td>
+                  </tr>
+                }
+              } @empty {
+                <tr><td colspan="6" class="p-6 text-center text-slate-500">{{ t().empty }}</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    @if (tab() === 'rules') {
+      <div class="card overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="bg-slate-50"><tr><th>{{ t().severity }}</th><th>{{ t().rule }}</th><th>{{ t().payment }}</th><th>{{ t().note }}</th></tr></thead>
+          <tbody>
+            @for (h of hits(); track h.id) {
+              <tr class="border-t border-slate-100">
+                <td><span class="pill" [class]="severityClass(h.severity)">{{ h.severity }}</span></td>
+                <td class="font-medium">{{ h.code }}</td>
+                <td>{{ h.payment?.reference }}</td>
+                <td>{{ hitMessage(h) }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="4" class="p-6 text-center text-slate-500">{{ t().empty }}</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    @if (tab() === 'audit') {
+      <div class="card overflow-x-auto">
+        <div class="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+          <div class="text-sm font-semibold">{{ t().audit }}</div>
+          @if (verified(); as v) {
+            <span class="pill" [class]="v.valid ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'">
+              {{ t().chain }}: {{ v.valid ? t().verified : t().broken }} ({{ v.entries }})
+            </span>
+          }
+        </div>
+        <table class="min-w-full">
+          <thead class="bg-slate-50"><tr><th>#</th><th>{{ t().actor }}</th><th>{{ t().action }}</th><th>{{ t().payment }}</th><th>{{ t().created }}</th></tr></thead>
+          <tbody>
+            @for (e of audit(); track e.id) {
+              <tr class="border-t border-slate-100">
+                <td class="text-slate-500">{{ e.seq }}</td>
+                <td>{{ e.actor }}</td>
+                <td class="font-medium">{{ e.action }}</td>
+                <td class="iban text-xs">{{ e.entityId }}</td>
+                <td class="text-xs text-slate-500">{{ e.createdAt }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </main>
+
+  @if (toast(); as toast) {
+    <div class="fixed bottom-4 inset-x-0 flex justify-center px-4 pointer-events-none">
+      <div class="rounded-xl px-4 py-2 text-sm shadow-lg" [class]="toast.kind === 'ok' ? 'bg-ink-900 text-white' : 'bg-rose-700 text-white'">
+        {{ toast.text }}
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,27 @@
+import { chromium } from 'playwright-core';
+
+const url = process.argv[2] ?? 'http://127.0.0.1:4173/';
+const out = process.argv[3] ?? 'docs/live.png';
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH ?? '/usr/bin/google-chrome', args: ['--no-sandbox'] });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+const errors = [];
+page.on('pageerror', (e) => errors.push(e.message));
+page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+await page.goto(url, { waitUntil: 'networkidle' });
+await page.getByText(/عرض متصفح ثابت|Static browser demo/).waitFor();
+await page.getByRole('button', { name: /إعادة ضبط العرض|Reset demo/ }).click();
+await page.getByText(/أُعيد تحميل البيانات التجريبية|Sample data reloaded/).waitFor();
+await page.screenshot({ path: out, fullPage: true });
+await page.getByRole('button', { name: /الاعتماد|Approvals/ }).click();
+await page.waitForTimeout(300);
+await page.screenshot({ path: 'docs/screenshot-approvals.png', fullPage: true });
+await page.getByRole('button', { name: /دفتر الأستاذ|Ledger/ }).click();
+await page.waitForTimeout(300);
+await page.screenshot({ path: 'docs/screenshot-ledger.png', fullPage: true });
+await page.getByRole('button', { name: /سجل المراجعة|Audit trail/ }).click();
+await page.getByText(/موثوقة|Verified/).waitFor();
+await page.screenshot({ path: 'docs/screenshot-audit.png', fullPage: true });
+const chain = await page.getByText(/موثوقة|Verified/).first().textContent();
+console.log(JSON.stringify({ url, chain, errors }, null, 2));
+await browser.close();
+if (errors.length || !/موثوقة|Verified/.test(chain ?? '')) process.exit(1);
